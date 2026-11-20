@@ -23,6 +23,10 @@ on:
         description: 'Hook hien tren clip (video, de trong neu khong can)'
         default: ''
         type: string
+      use_youtube_cookies:
+        description: 'Use YouTube cookies from repository secret'
+        type: boolean
+        default: false
       use_codex:
         description: 'Dung Xingchi de danh gia va viet hook'
         type: boolean
@@ -48,6 +52,22 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg fonts-dejavu-core
           python -m pip install -r requirements.txt
+      - name: Prepare YouTube cookies
+        if: ${{ inputs.use_youtube_cookies && inputs.mode == 'video' }}
+        env:
+          YOUTUBE_COOKIES: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          cookies = os.environ.pop('YOUTUBE_COOKIES', '')
+          if not cookies.startswith(('# Netscape HTTP Cookie File', '# HTTP Cookie File')):
+              raise SystemExit('YOUTUBE_COOKIES is missing or is not Netscape cookies.txt format')
+          path = Path(os.environ['RUNNER_TEMP']) / 'youtube-cookies.txt'
+          fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(fd, 'w', encoding='utf-8') as f:
+              f.write(cookies)
+          PY
       - name: Run selected task
         env:
           MODE: ${{ inputs.mode }}
@@ -56,6 +76,7 @@ jobs:
           COUNT: ${{ inputs.count }}
           HOOK: ${{ inputs.hook }}
           MINUTES: ${{ inputs.minutes }}
+          USE_YOUTUBE_COOKIES: ${{ inputs.use_youtube_cookies }}
         shell: bash
         run: |
           python - <<'PY'
@@ -68,6 +89,8 @@ jobs:
               print('+', *args, flush=True)
               subprocess.run([sys.executable, *args], check=True)
           mode, url = os.environ['MODE'], os.environ['VIDEO_URL'].strip()
+          if os.environ['USE_YOUTUBE_COOKIES'] == 'true' and mode == 'video':
+              os.environ['YTDLP_COOKIES_FILE'] = str(Path(os.environ['RUNNER_TEMP']) / 'youtube-cookies.txt')
           try:
               minutes, count = int(os.environ['MINUTES']), int(os.environ['COUNT'])
               if not 1 <= minutes <= 60 or not 1 <= count <= 5:
@@ -102,6 +125,9 @@ jobs:
           else:
               sys.exit('Unsupported mode')
           PY
+      - name: Remove YouTube cookies
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/youtube-cookies.txt"
       - name: Codex review of candidate moments
         if: ${{ success() && contains(fromJSON('["video","demo"]'), inputs.mode) && inputs.use_codex }}
         uses: openai/codex-action@v1
