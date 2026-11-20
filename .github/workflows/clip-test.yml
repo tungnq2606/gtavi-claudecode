@@ -6,7 +6,7 @@ on:
         description: 'Chon tac vu'
         required: true
         type: choice
-        options: [video, trends, streams, live]
+        options: [video, demo, trends, streams, live]
       url:
         description: 'Link video hoac livestream (video/live)'
         required: false
@@ -85,7 +85,13 @@ jobs:
               run('scripts/streams.py', '--query', os.environ['QUERY'], '--out', 'streams.md')
           elif mode == 'live':
               run('scripts/live.py', url, '--minutes', str(minutes))
-          elif mode == 'video':
+          elif mode in ('video', 'demo'):
+              if mode == 'demo':
+                  url = 'sample-demo.mp4'
+                  subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y',
+                      '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=15',
+                      '-f', 'lavfi', '-i', r'aevalsrc=0.35*sin(2*PI*440*t)*if(between(mod(t\,12)\,3\,7)\,1\,0.02):s=16000',
+                      '-t', '45', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'aac', url], check=True)
               run('scripts/moments.py', url, '--top', str(count), '--max-minutes', str(minutes))
               job = job_dir(url)
               candidates = json.loads((job / 'candidates.json').read_text())['candidates']
@@ -97,7 +103,7 @@ jobs:
               sys.exit('Unsupported mode')
           PY
       - name: Codex review of candidate moments
-        if: ${{ success() && inputs.mode == 'video' && inputs.use_codex }}
+        if: ${{ success() && contains(fromJSON('["video","demo"]'), inputs.mode) && inputs.use_codex }}
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.XINGCHI_API_KEY }}
