@@ -6,9 +6,9 @@ on:
         description: 'Chon tac vu'
         required: true
         type: choice
-        options: [video, demo, trends, streams, live]
+        options: [video, drive, demo, trends, streams, live]
       url:
-        description: 'Link video hoac livestream (video/live)'
+        description: 'Link YouTube, Twitch hoac Google Drive'
         required: false
         type: string
       query:
@@ -47,7 +47,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y ffmpeg fonts-dejavu-core
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements.txt 'gdown==6.1.0'
       - name: Run selected task
         env:
           MODE: ${{ inputs.mode }}
@@ -85,7 +85,19 @@ jobs:
               run('scripts/streams.py', '--query', os.environ['QUERY'], '--out', 'streams.md')
           elif mode == 'live':
               run('scripts/live.py', url, '--minutes', str(minutes))
-          elif mode in ('video', 'demo'):
+          elif mode in ('video', 'drive', 'demo'):
+              if mode == 'drive':
+                  import gdown
+                  parsed = urlparse(url)
+                  if parsed.scheme != 'https' or parsed.hostname != 'drive.google.com':
+                      sys.exit('Enter a Google Drive file sharing link (https://drive.google.com/...)')
+                  target = 'drive-source.mp4'
+                  if not gdown.download(url=url, output=target, fuzzy=True, quiet=False):
+                      sys.exit('Drive download failed. Check file sharing and download permissions.')
+                  subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1', target], check=True)
+                  trimmed = 'drive-input.mp4'
+                  subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', target, '-t', str(minutes * 60), '-map', '0:v:0', '-map', '0:a:0?', '-c', 'copy', trimmed], check=True)
+                  url = trimmed
               if mode == 'demo':
                   url = 'sample-demo.mp4'
                   subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y',
@@ -103,7 +115,7 @@ jobs:
               sys.exit('Unsupported mode')
           PY
       - name: Codex review of candidate moments
-        if: ${{ success() && contains(fromJSON('["video","demo"]'), inputs.mode) && inputs.use_codex }}
+        if: ${{ success() && contains(fromJSON('["video","drive","demo"]'), inputs.mode) && inputs.use_codex }}
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.XINGCHI_API_KEY }}
