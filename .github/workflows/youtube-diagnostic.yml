@@ -26,7 +26,7 @@ jobs:
           python -m yt_dlp -v --js-runtimes node --extractor-args 'youtube:player_client=mweb,tv,web_safari' --skip-download --print '%(id)s %(title)s' 'https://www.youtube.com/watch?v=SbQevYd1-oc'
       - name: Download a short test segment
         run: |
-          python -m yt_dlp -v --js-runtimes node --extractor-args 'youtube:player_client=mweb,tv,web_safari' --download-sections '*0-10' --no-playlist -o /tmp/youtube-test.\'%(ext)s\' 'https://www.youtube.com/watch?v=SbQevYd1-oc'
+          python -m yt_dlp -v --js-runtimes node --extractor-args 'youtube:player_client=mweb,tv,web_safari' --download-sections '*0-10' --no-playlist -o '/tmp/youtube-test.%(ext)s' 'https://www.youtube.com/watch?v=SbQevYd1-oc'
       - name: Provider logs
         if: always()
         run: docker logs pot-provider || true
