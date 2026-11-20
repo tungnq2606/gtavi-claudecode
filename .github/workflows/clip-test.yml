@@ -92,7 +92,7 @@ jobs:
                   if parsed.scheme != 'https' or parsed.hostname != 'drive.google.com':
                       sys.exit('Enter a Google Drive file sharing link (https://drive.google.com/...)')
                   target = 'drive-source.mp4'
-                  if not gdown.download(url=url, output=target, fuzzy=True, quiet=False):
+                  if not gdown.download(url=url, output=target, quiet=False):
                       sys.exit('Drive download failed. Check file sharing and download permissions.')
                   subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1', target], check=True)
                   trimmed = 'drive-input.mp4'
