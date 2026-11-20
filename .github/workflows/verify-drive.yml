@@ -1,0 +1,30 @@
+name: Verify Google Drive downloader
+on:
+  pull_request:
+    paths:
+      - .github/workflows/clip-test.yml
+      - .github/workflows/verify-drive.yml
+permissions:
+  contents: read
+jobs:
+  gdown:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'gdown==6.1.0'
+      - name: Download gdown public example
+        run: |
+          python - <<'PY'
+          import gdown
+          from pathlib import Path
+          url = 'https://drive.google.com/file/d/0B9P1L--7Wd2vU3VUVlFnbTgtS2c/view?usp=sharing'
+          target = 'sample-download'
+          if not gdown.download(url=url, output=target, quiet=False):
+              raise SystemExit('Drive download failed')
+          if not Path(target).is_file() or Path(target).stat().st_size == 0:
+              raise SystemExit('Downloaded file is empty')
+          print('Drive file downloaded successfully')
+          PY
